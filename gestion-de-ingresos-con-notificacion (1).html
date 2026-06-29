@@ -1,0 +1,910 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Gestión de Ingresos con Notificación · Fernanda García</title>
+<script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
+<style>
+  :root{
+    --bg: #ECEEF4;
+    --panel: #FFFFFF;
+    --ink: #1A1D2E;
+    --ink-soft: #555870;
+    --line: #CDD0DF;
+    --blue: #2D3A8C;
+    --blue-dark: #1A2260;
+    --blue-light: #E8EAF6;
+    --green: #2E7D52;
+    --green-light: #E6F4EC;
+    --amber: #B06A1A;
+    --amber-light: #FBF0E0;
+    --violet: #6A3FA0;
+    --violet-light: #EDE8FA;
+    --danger: #B3432D;
+    --radius: 10px;
+    font-family: 'Avenir Next', 'Segoe UI', system-ui, -apple-system, sans-serif;
+  }
+  *{box-sizing:border-box;}
+  body{ margin:0; background:var(--bg); color:var(--ink); min-height:100vh; -webkit-font-smoothing:antialiased; }
+  .wrap{ max-width:580px; margin:0 auto; padding:28px 18px 60px; }
+  .wrap.wide{ max-width:920px; }
+
+  header.app{ display:flex; align-items:center; justify-content:space-between; margin-bottom:22px; }
+  .brand{ display:flex; align-items:baseline; gap:10px; }
+  .brand .mark{ font-size:13px; letter-spacing:0.14em; text-transform:uppercase; color:var(--blue); font-weight:700; }
+  .brand h1{ font-size:19px; margin:0; font-weight:600; color:var(--blue-dark); }
+  .who{ font-size:13px; color:var(--ink-soft); text-align:right; }
+  .who button{ background:none; border:none; color:var(--blue); text-decoration:underline; cursor:pointer; font-size:13px; padding:2px 0; }
+
+  .card{ background:var(--panel); border:1px solid var(--line); border-radius:var(--radius); padding:24px; margin-bottom:20px; }
+  .card h2{ margin:0 0 4px; font-size:17px; color:var(--blue-dark); }
+  .subtitle{ margin:0 0 20px; font-size:13px; color:var(--ink-soft); }
+
+  label{ display:block; font-size:12.5px; font-weight:600; color:var(--ink-soft); margin-bottom:6px; text-transform:uppercase; letter-spacing:0.03em; }
+  .field{ margin-bottom:16px; }
+  input[type=text],input[type=password],input[type=date],input[type=number],textarea,select{
+    width:100%; padding:11px 12px; border:1px solid var(--line); border-radius:8px;
+    font-size:15px; color:var(--ink); background:#FCFCFD; font-family:inherit;
+  }
+  textarea{ resize:vertical; min-height:70px; }
+  input:focus,textarea:focus,select:focus{ outline:none; border-color:var(--blue); box-shadow:0 0 0 3px rgba(27,75,138,0.12); }
+
+  .estado-toggle{ display:flex; gap:8px; flex-wrap:wrap; }
+  .estado-toggle input{ display:none; }
+  .estado-toggle label.opt{
+    flex:1; min-width:100px; text-transform:none; font-weight:600; font-size:13px;
+    border:1px solid var(--line); border-radius:8px; padding:10px 8px;
+    text-align:center; cursor:pointer; color:var(--ink-soft); background:#FCFCFD;
+    transition:all .12s ease;
+  }
+  .estado-toggle label.opt.solicitado.active{ border-color:var(--amber); color:var(--amber); background:var(--amber-light); }
+  .estado-toggle label.opt.pendiente.active{ border-color:var(--violet); color:var(--violet); background:var(--violet-light); }
+  .estado-toggle label.opt.autorizado.active{ border-color:var(--green); color:var(--green); background:var(--green-light); }
+
+  button.primary{ width:100%; padding:13px; background:var(--blue); color:#fff; border:none; border-radius:8px; font-size:15px; font-weight:600; cursor:pointer; transition:background .12s ease; }
+  button.primary:hover{ background:var(--blue-dark); }
+  button.primary:disabled{ background:#A9B3AE; cursor:not-allowed; }
+  button.secondary{ width:100%; padding:11px; background:transparent; color:var(--blue); border:1px solid var(--line); border-radius:8px; font-size:14px; font-weight:600; cursor:pointer; margin-top:10px; }
+  button.danger-btn{ width:100%; padding:11px; background:transparent; color:var(--danger); border:1px solid var(--danger); border-radius:8px; font-size:14px; font-weight:600; cursor:pointer; margin-top:10px; }
+
+  .error{ background:#FBEAE5; border:1px solid #E3B6A6; color:var(--danger); padding:10px 12px; border-radius:8px; font-size:13.5px; margin-bottom:16px; }
+  .success{ background:#E6F4EC; border:1px solid #B9D6C3; color:var(--green); padding:10px 12px; border-radius:8px; font-size:13.5px; margin-bottom:16px; }
+
+  .auth-tabs{ display:flex; gap:6px; margin-bottom:20px; background:#E5E8EE; border-radius:8px; padding:4px; }
+  .auth-tabs button{ flex:1; padding:9px; border:none; background:transparent; border-radius:6px; font-size:13.5px; font-weight:600; color:var(--ink-soft); cursor:pointer; }
+  .auth-tabs button.active{ background:#fff; color:var(--blue-dark); box-shadow:0 1px 2px rgba(0,0,0,0.08); }
+
+  .admin-tabs{ display:flex; gap:6px; margin-bottom:20px; background:#E5E8EE; border-radius:8px; padding:4px; flex-wrap:wrap; }
+  .admin-tab{ flex:1; min-width:100px; padding:10px 8px; border:none; background:transparent; border-radius:6px; font-size:13.5px; font-weight:600; color:var(--ink-soft); cursor:pointer; }
+  .admin-tab.active{ background:#fff; color:var(--blue-dark); box-shadow:0 1px 2px rgba(0,0,0,0.08); }
+
+  .badge{ display:inline-block; padding:3px 10px; border-radius:99px; font-size:11.5px; font-weight:700; }
+  .badge.solicitado{ background:var(--amber-light); color:var(--amber); }
+  .badge.pendiente{ background:var(--violet-light); color:var(--violet); }
+  .badge.autorizado{ background:var(--green-light); color:var(--green); }
+
+  table.log{ width:100%; border-collapse:collapse; font-size:13.5px; }
+  table.log th{ text-align:left; font-size:11px; text-transform:uppercase; letter-spacing:0.04em; color:var(--ink-soft); border-bottom:1px solid var(--line); padding:8px 6px; }
+  table.log td{ padding:10px 6px; border-bottom:1px solid #ECEEF2; vertical-align:top; }
+
+  .stat-row{ display:flex; gap:12px; margin-bottom:18px; flex-wrap:wrap; }
+  .stat{ flex:1; min-width:100px; background:#F7F8FA; border:1px solid var(--line); border-radius:8px; padding:12px 14px; }
+  .stat .n{ font-size:22px; font-weight:700; color:var(--blue-dark); }
+  .stat .l{ font-size:11.5px; color:var(--ink-soft); text-transform:uppercase; letter-spacing:0.03em; }
+
+  .del-btn{ background:none; border:none; color:var(--ink-soft); cursor:pointer; font-size:12px; text-decoration:underline; }
+  .del-btn:hover{ color:var(--danger); }
+  .edit-btn{ background:none; border:none; color:var(--blue); cursor:pointer; font-size:12px; text-decoration:underline; margin-right:8px; }
+  .reset-pass-btn{ background:none; border:none; color:var(--amber); cursor:pointer; font-size:12px; text-decoration:underline; margin-right:8px; }
+
+  .empty{ text-align:center; padding:30px 10px; color:var(--ink-soft); font-size:14px; }
+  .loading{ text-align:center; padding:60px 20px; color:var(--ink-soft); }
+  .admin-select{ margin-bottom:14px; }
+
+  footer.note{ text-align:center; font-size:12px; color:var(--ink-soft); margin-top:30px; line-height:1.6; }
+
+  .notif-banner{
+    background: #E6F4EC; border: 1.5px solid #7DC49A; border-radius: var(--radius);
+    padding: 16px 18px; margin-bottom: 18px;
+  }
+  .notif-banner .notif-title{ font-weight:700; color:var(--green); font-size:14px; margin-bottom:10px; display:flex; align-items:center; gap:8px; }
+  .notif-item{ font-size:13.5px; color:var(--ink); padding:7px 0; border-bottom:1px solid #C3DECE; display:flex; justify-content:space-between; align-items:center; gap:10px; }
+  .notif-item:last-child{ border-bottom:none; }
+  .notif-dismiss{ background:none; border:none; color:var(--green); cursor:pointer; font-size:12px; text-decoration:underline; white-space:nowrap; }
+
+  .modal-overlay{ position:fixed; inset:0; background:rgba(0,0,0,0.35); display:flex; align-items:center; justify-content:center; z-index:100; padding:20px; }
+  .modal{ background:#fff; border-radius:var(--radius); padding:24px; max-width:400px; width:100%; box-shadow:0 8px 32px rgba(0,0,0,0.18); }
+  .modal h3{ margin:0 0 6px; font-size:16px; color:var(--blue-dark); }
+  .modal .subtitle{ margin:0 0 18px; }
+
+  .firma{ font-size:13px; color:var(--ink-soft); margin: 2px 0 18px; }
+  .firma strong{ color:var(--ink); }
+
+  .user-row{ display:flex; align-items:center; justify-content:space-between; padding:10px 0; border-bottom:1px solid #ECEEF2; gap:8px; }
+  .user-row-actions{ display:flex; align-items:center; gap:4px; flex-shrink:0; }
+
+  @media(max-width:480px){
+    table.log th:nth-child(4),table.log td:nth-child(4){ display:none; }
+  }
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script>
+(function(){
+
+  // ── Storage: localStorage (funciona offline en el navegador) ──
+  function dbGet(key){
+    try{ const v=localStorage.getItem(key); return v?JSON.parse(v):null; }catch(e){return null;}
+  }
+  function dbSet(key,value){
+    try{ localStorage.setItem(key,JSON.stringify(value)); return true; }catch(e){return false;}
+  }
+  function dbDelete(key){
+    try{ localStorage.removeItem(key); return true; }catch(e){return false;}
+  }
+  function dbListUsers(){
+    const keys=[];
+    for(let i=0;i<localStorage.length;i++){
+      const k=localStorage.key(i);
+      if(k&&k.startsWith('gi_user:')) keys.push(k.replace('gi_user:',''));
+    }
+    return keys;
+  }
+  const sleep=ms=>new Promise(r=>setTimeout(r,ms));
+
+  // EmailJS config
+  const EMAILJS_SERVICE  = 'service_s3azq4h';
+  const EMAILJS_TEMPLATE = 'template_fgstxlw';
+  const EMAILJS_PUBKEY   = 'u9ber6m9QP6rhTgZf';
+
+  // Técnicos por defecto (se pueden editar desde el panel admin)
+  const TECNICOS_DEFAULT = [
+    {nombre:'Pablo Giarrizzo',          email:'pablo.giarrizzo@tmoviles.com.ar'},
+    {nombre:'Ivan Aparicio',            email:'ivan.aparicio@tmoviles.com.ar'},
+    {nombre:'Jose Matteo',              email:'jose.matteo@tmoviles.com.ar'},
+    {nombre:'Ricardo Sanchez',          email:'ricardo.alejandro.sanchez@tmoviles.com.ar'},
+    {nombre:'Julian Vazquez',           email:'julian.vazquez@tmoviles.com.ar'},
+    {nombre:'Pablo Guzman',             email:'pablo.fabian.guzman@tmoviles.com.ar'},
+    {nombre:'Garcia Fernanda',          email:'mariafernan.garcia@tmoviles.com.ar'},
+    {nombre:'Cornero Berrutti Santiago',email:'santiago.cornero@tmoviles.com.ar'},
+    {nombre:'Naterro Cesar Luis',       email:'cesar.nattero@tmoviles.com.ar'},
+  ];
+
+  let tecnicosCache = null;
+
+  async function loadTecnicos(){
+    const r = dbGet('gi_tecnicos');
+    tecnicosCache = r || TECNICOS_DEFAULT;
+    return tecnicosCache;
+  }
+
+  async function saveTecnicos(list){
+    tecnicosCache = list;
+    dbSet('gi_tecnicos', list);
+  }
+
+  function getTecnicoEmail(nombre){
+    if(!nombre || !tecnicosCache) return null;
+    const key = nombre.trim().toLowerCase();
+    const found = tecnicosCache.find(t => {
+      const tk = t.nombre.trim().toLowerCase();
+      return tk === key || key.includes(tk) || tk.includes(key);
+    });
+    return found ? found.email : null;
+  }
+
+  async function sendEmailNotif(entry){
+    try{
+      emailjs.init(EMAILJS_PUBKEY);
+      const toEmail=getTecnicoEmail(entry.tecnico);
+      if(!toEmail) return false;
+      await emailjs.send(EMAILJS_SERVICE, EMAILJS_TEMPLATE, {
+        to_email:   toEmail,
+        name:       entry.tecnico,
+        email:      toEmail,
+        sitio:      entry.sitio,
+        tarea:      entry.tarea,
+        fecha:      fmtDate(entry.fecha),
+        from_name:  'Fernanda García',
+        time:       new Date().toLocaleString('es-AR'),
+      });
+      return true;
+    }catch(err){
+      console.error('EmailJS error:',err);
+      return false;
+    }
+  }
+  const TECNICOS_PHONES = {
+    'pablo giarrizzo':    '541144942039',
+    'ivan aparicio':      '541144150960',
+    'jose matteo':        '541155813349',
+    'ricardo sanchez':    '541138958920',
+    'julian vazquez':     '541140452028',
+    'pablo guzman':       '541164956882',
+    'garcia fernanda':    '541159431294',
+    'fernanda garcia':    '541159431294',
+    'cornero berrutti santiago': '541159491192',
+    'naterro cesar luis': '541161894375',
+  };
+
+  function getTecnicoPhone(nombre){
+    if(!nombre) return null;
+    const key=nombre.trim().toLowerCase();
+    // exact match
+    if(TECNICOS_PHONES[key]) return TECNICOS_PHONES[key];
+    // partial match
+    for(const [k,v] of Object.entries(TECNICOS_PHONES)){
+      if(key.includes(k)||k.includes(key)) return v;
+    }
+    return null;
+  }
+
+  function sendWhatsApp(entry){
+    const phone=getTecnicoPhone(entry.tecnico);
+    if(!phone) return false;
+    const msg=`✅ *Ingreso AUTORIZADO*\n\n📍 Sitio: *${entry.sitio}*\n🔧 Tarea: ${entry.tarea}\n📅 Fecha: ${fmtDate(entry.fecha)}\n\nTu solicitud fue autorizada. ¡Ya podés proceder!`;
+    const url=`https://wa.me/${phone}?text=${encodeURIComponent(msg)}`;
+    window.open(url,'_blank');
+    return true;
+  }
+
+  async function hashPass(pass){
+    const enc=new TextEncoder().encode(pass+'::gestion-ingresos-salt');
+    const buf=await crypto.subtle.digest('SHA-256',enc);
+    return Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,'0')).join('');
+  }
+
+  let memSession = localStorage.getItem('gi_session') || null;
+  let state={
+    loading:true, user:null, authTab:'login', authError:'',
+    entries:[], formError:'', formSuccess:'', saving:false,
+    estado:'solicitado', confirmingDelete:null, confirmingRemove:null,
+    empError:'', empSuccess:'', adminSection:'inicio',
+    adminViewing:null, exporting:false, editingEntry:null,
+    notifs:[], resettingPass:null, resetError:'', resetSuccess:'',
+  };
+  let allEntriesCache=null;
+  let allUsersCache=[];
+  let adminEntriesCache={};
+
+  function setState(patch){ state=Object.assign({},state,patch); render(); }
+  function escHtml(s){ const d=document.createElement('div'); d.textContent=s; return d.innerHTML; }
+  function fmtDate(iso){ if(!iso)return''; const[y,m,d]=iso.split('-'); return d+'/'+m+'/'+y; }
+  const root=document.getElementById('root');
+
+  async function init(){
+    await loadTecnicos();
+    if(memSession){
+      const rec=dbGet('gi_user:'+memSession);
+      if(rec){ state.user={username:memSession,isAdmin:!!rec.isAdmin}; await loadMyEntries(); state.notifs=dbGet('gi_notifs:'+memSession)||[]; }
+    }
+    state.loading=false; render();
+  }
+
+  async function loadMyEntries(){
+    const r=dbGet('gi_entries:'+state.user.username);
+    state.entries=r||[];
+  }
+
+  async function handleLogin(u,p){
+    u=u.trim();
+    if(!u||!p){setState({authError:'Completá usuario y contraseña.'});return;}
+    const rec=dbGet('gi_user:'+u);
+    if(!rec){setState({authError:'No existe ese usuario. Registrate primero.'});return;}
+    if(await hashPass(p)!==rec.passHash){setState({authError:'Contraseña incorrecta.'});return;}
+    memSession=u; localStorage.setItem('gi_session',u); state.user={username:u,isAdmin:!!rec.isAdmin}; state.authError='';
+    await loadMyEntries(); state.notifs=dbGet('gi_notifs:'+u)||[]; render();
+  }
+
+  async function handleRegister(u,p,p2){
+    u=u.trim();
+    if(!u||!p){setState({authError:'Completá nombre de usuario y contraseña.'});return;}
+    if(p.length<4){setState({authError:'La contraseña debe tener al menos 4 caracteres.'});return;}
+    if(p!==p2){setState({authError:'Las contraseñas no coinciden.'});return;}
+    if(dbGet('gi_user:'+u)){setState({authError:'Ese nombre de usuario ya existe.'});return;}
+    const isAdmin=u.toLowerCase()==='admin';
+    dbSet('gi_user:'+u,{username:u,passHash:await hashPass(p),isAdmin});
+    memSession=u; localStorage.setItem('gi_session',u); state.user={username:u,isAdmin}; state.authError=''; state.entries=[]; render();
+  }
+
+  function handleLogout(){
+    memSession=null; localStorage.removeItem('gi_session'); state.user=null; state.entries=[]; state.adminViewing=null;
+    state.adminSection='inicio'; allEntriesCache=null; render();
+  }
+
+  async function handleSave(data){
+    setState({saving:true,formError:'',formSuccess:''});
+    if(!data.fecha||!data.sitio||!data.tecnico||!data.tarea){
+      setState({saving:false,formError:'Completá todos los campos obligatorios.'});return;
+    }
+    const entry={
+      id:'gi_'+Date.now()+'_'+Math.random().toString(36).slice(2,6),
+      fecha:data.fecha, sitio:data.sitio.trim(), tecnico:data.tecnico.trim(),
+      estado:data.estado, tarea:data.tarea.trim(), detalle:data.detalle.trim(),
+      cargadoPor:state.user.username, registradoEl:new Date().toISOString(),
+    };
+    const newEntries=[entry,...state.entries];
+    const ok=dbSet('gi_entries:'+state.user.username,newEntries);
+    if(!ok){setState({saving:false,formError:'No se pudo guardar.'});return;}
+    state.entries=newEntries;
+    if(state.user.isAdmin&&allEntriesCache) allEntriesCache=[Object.assign({},entry,{_owner:state.user.username}),...allEntriesCache];
+    setState({saving:false,formSuccess:'Ingreso registrado correctamente.',formError:''});
+    setTimeout(()=>setState({formSuccess:''}),3000);
+  }
+
+  async function handleDelete(id,username){
+    const target=username||state.user.username;
+    const rec=dbGet('gi_entries:'+target);
+    const filtered=(rec||[]).filter(e=>e.id!==id);
+    dbSet('gi_entries:'+target,filtered);
+    if(target===state.user.username) state.entries=filtered;
+    if(allEntriesCache) allEntriesCache=allEntriesCache.filter(e=>e.id!==id);
+    setState({confirmingDelete:null});
+  }
+
+  async function handleChangeEstado(id,username,nuevoEstado){
+    const rec=dbGet('gi_entries:'+username);
+    const updated=(rec||[]).map(e=>e.id===id?Object.assign({},e,{estado:nuevoEstado}):e);
+    dbSet('gi_entries:'+username,updated);
+    if(username===state.user.username) state.entries=updated;
+    if(allEntriesCache) allEntriesCache=allEntriesCache.map(e=>e.id===id?Object.assign({},e,{estado:nuevoEstado}):e);
+    if(nuevoEstado==='autorizado'){
+      const entry=updated.find(e=>e.id===id);
+      const notifs=dbGet('gi_notifs:'+username)||[];
+      notifs.push({id:'n_'+Date.now(),entryId:id,sitio:entry?entry.sitio:'',tarea:entry?entry.tarea:'',fecha:entry?entry.fecha:'',leido:false,creadoEl:new Date().toISOString()});
+      dbSet('gi_notifs:'+username,notifs);
+      // Enviar email de notificación
+      if(entry){
+        sendEmailNotif(entry).then(ok=>{
+          if(ok) console.log('Email enviado a',entry.tecnico);
+        });
+      }
+    }
+    setState({editingEntry:null});
+  }
+
+  async function loadAllEntries(){
+    const usernames=dbListUsers();
+    allUsersCache=usernames.filter(u=>u!==state.user.username);
+    const allUsernames=[state.user.username,...allUsersCache];
+    const merged=[];
+    for(const u of allUsernames){
+      const rec=dbGet('gi_entries:'+u)||[];
+      adminEntriesCache[u]=rec;
+      rec.forEach(e=>merged.push(Object.assign({},e,{_owner:u})));
+    }
+    merged.sort((a,b)=>a.fecha<b.fecha?1:(a.fecha>b.fecha?-1:0));
+    allEntriesCache=merged;
+  }
+
+  async function handleAddEmp(u,p){
+    u=(u||'').trim();
+    if(!u||!p){setState({empError:'Completá nombre y contraseña.'});return;}
+    if(p.length<4){setState({empError:'La contraseña debe tener al menos 4 caracteres.'});return;}
+    if(u.toLowerCase()==='admin'){setState({empError:'Ese nombre está reservado.'});return;}
+    if(dbGet('gi_user:'+u)){setState({empError:'Ya existe un usuario con ese nombre.'});return;}
+    dbSet('gi_user:'+u,{username:u,passHash:await hashPass(p),isAdmin:false});
+    dbSet('gi_entries:'+u,[]);
+    setState({empError:'',empSuccess:'Usuario "'+u+'" creado correctamente.'});
+    await renderAdmin();
+  }
+
+  async function handleRemoveEmp(u){
+    try{dbDelete('gi_user:'+u);}catch(e){}
+    try{dbDelete('gi_entries:'+u);}catch(e){}
+    delete adminEntriesCache[u];
+    if(state.adminViewing===u) state.adminViewing=null;
+    if(allEntriesCache) allEntriesCache=allEntriesCache.filter(e=>e._owner!==u);
+    state.confirmingRemove=null;
+    setState({empSuccess:'Usuario "'+u+'" eliminado.',empError:''});
+    await renderAdmin();
+  }
+
+  async function handleResetPassword(username, newPass, newPass2){
+    if(!newPass || newPass.length < 4){
+      setState({resetError:'La contraseña debe tener al menos 4 caracteres.'});return;
+    }
+    if(newPass !== newPass2){
+      setState({resetError:'Las contraseñas no coinciden.'});return;
+    }
+    const rec = dbGet('gi_user:'+username);
+    if(!rec){setState({resetError:'No se encontró el usuario.'});return;}
+    rec.passHash = await hashPass(newPass);
+    await dbSet('gi_user:'+username, rec, true);
+    setState({resettingPass:null, resetError:'', resetSuccess:'Contraseña de "'+username+'" reseteada correctamente.'});
+    setTimeout(()=>setState({resetSuccess:''}), 3500);
+  }
+
+  async function handleExport(){
+    setState({exporting:true});
+    if(!allEntriesCache) await loadAllEntries();
+    const rows=(allEntriesCache||[]).map(e=>({
+      'Usuario':e._owner||e.cargadoPor||'',
+      'Fecha':e.fecha,
+      'N° Sitio':e.sitio,
+      'Técnico':e.tecnico,
+      'Estado':e.estado,
+      'Tarea a realizar':e.tarea,
+      'Detalle':e.detalle,
+      'Registrado el':new Date(e.registradoEl).toLocaleString('es-AR'),
+    }));
+    const ws=XLSX.utils.json_to_sheet(rows);
+    ws['!cols']=[{wch:16},{wch:12},{wch:12},{wch:20},{wch:12},{wch:30},{wch:40},{wch:20}];
+    const wb=XLSX.utils.book_new();
+    wb.Props={Author:'Fernanda García'};
+    XLSX.utils.book_append_sheet(wb,ws,'Gestión de Ingresos');
+    XLSX.writeFile(wb,'gestion-ingresos-'+new Date().toISOString().slice(0,10)+'.xlsx');
+    setState({exporting:false});
+  }
+
+  /* ── RENDER ── */
+  function render(){
+    if(state.loading){root.innerHTML='<div class="wrap"><div class="loading">Cargando…</div></div>';return;}
+    if(!state.user){renderAuth();return;}
+    if(state.user.isAdmin) renderAdmin(); else renderEmployee();
+  }
+
+  function renderAuth(){
+    const isLogin=state.authTab==='login';
+    root.innerHTML=`
+      <div class="wrap">
+        <header class="app">
+          <div class="brand"><span class="mark">GI</span><h1>Gestión de Ingresos</h1></div>
+        </header>
+        <div class="card">
+          <h2>${isLogin?'Iniciar sesión':'Crear cuenta'}</h2>
+          <p class="subtitle">${isLogin?'Ingresá con tu usuario y contraseña.':'Elegí un nombre de usuario y contraseña para acceder.'}</p>
+          <div class="auth-tabs">
+            <button id="tabL" class="${isLogin?'active':''}">Iniciar sesión</button>
+            <button id="tabR" class="${!isLogin?'active':''}">Crear cuenta</button>
+          </div>
+          ${state.authError?`<div class="error">${escHtml(state.authError)}</div>`:''}
+          <div class="field"><label>Usuario</label><input type="text" id="aUser" placeholder="ej: jgomez" autocomplete="username"></div>
+          <div class="field"><label>Contraseña</label><input type="password" id="aPass" placeholder="••••••••" autocomplete="${isLogin?'current-password':'new-password'}"></div>
+          ${!isLogin?`<div class="field"><label>Repetir contraseña</label><input type="password" id="aPass2" placeholder="••••••••" autocomplete="new-password"></div>`:''}
+          <button class="primary" id="aSubmit">${isLogin?'Ingresar':'Crear cuenta'}</button>
+        </div>
+        <footer class="note">Sistema de gestión de ingresos.<br>Desarrollado por <strong>Fernanda García</strong></footer>
+      </div>`;
+    document.getElementById('tabL').onclick=()=>setState({authTab:'login',authError:''});
+    document.getElementById('tabR').onclick=()=>setState({authTab:'register',authError:''});
+    document.getElementById('aSubmit').onclick=()=>{
+      const u=document.getElementById('aUser').value;
+      const p=document.getElementById('aPass').value;
+      if(isLogin) handleLogin(u,p);
+      else handleRegister(u,p,document.getElementById('aPass2').value);
+    };
+    root.querySelectorAll('input').forEach(i=>i.addEventListener('keydown',e=>{if(e.key==='Enter')document.getElementById('aSubmit').click();}));
+  }
+
+  function renderForm(){
+    return `
+      <div class="card">
+        <h2>Nuevo ingreso</h2>
+        <p class="subtitle">Registrá un nuevo pedido de ingreso.</p>
+        <p class="firma">Creado por: <strong>Fernanda García</strong></p>
+        ${state.formError?`<div class="error">${escHtml(state.formError)}</div>`:''}
+        ${state.formSuccess?`<div class="success">${escHtml(state.formSuccess)}</div>`:''}
+        <div class="field" style="display:flex;gap:12px;">
+          <div style="flex:1;"><label>Fecha de pedido</label><input type="date" id="fFecha"></div>
+          <div style="flex:1;"><label>N° de sitio</label><input type="text" id="fSitio" placeholder="ej: 1042"></div>
+        </div>
+        <div class="field"><label>Nombre del técnico</label><input type="text" id="fTecnico" placeholder="Nombre completo"></div>
+        <div class="field">
+          <label>Estado</label>
+          <div class="estado-toggle">
+            <label class="opt solicitado ${state.estado==='solicitado'?'active':''}">
+              <input type="radio" name="estado" value="solicitado" ${state.estado==='solicitado'?'checked':''}><span>Solicitado</span>
+            </label>
+            <label class="opt pendiente ${state.estado==='pendiente'?'active':''}">
+              <input type="radio" name="estado" value="pendiente" ${state.estado==='pendiente'?'checked':''}><span>Pendiente</span>
+            </label>
+            <label class="opt autorizado ${state.estado==='autorizado'?'active':''}">
+              <input type="radio" name="estado" value="autorizado" ${state.estado==='autorizado'?'checked':''}><span>Autorizado</span>
+            </label>
+          </div>
+        </div>
+        <div class="field"><label>Tarea a realizar</label><input type="text" id="fTarea" placeholder="Descripción breve de la tarea"></div>
+        <div class="field"><label>Detalle</label><textarea id="fDetalle" placeholder="Información adicional (opcional)"></textarea></div>
+        <button class="primary" id="fSubmit" ${state.saving?'disabled':''}>${state.saving?'Guardando…':'Guardar ingreso'}</button>
+      </div>`;
+  }
+
+  function bindForm(){
+    root.querySelectorAll('input[name=estado]').forEach(r=>{
+      r.addEventListener('change',()=>setState({estado:r.value}));
+    });
+    document.getElementById('fSubmit').onclick=()=>{
+      handleSave({
+        fecha:document.getElementById('fFecha').value,
+        sitio:document.getElementById('fSitio').value,
+        tecnico:document.getElementById('fTecnico').value,
+        estado:state.estado,
+        tarea:document.getElementById('fTarea').value,
+        detalle:document.getElementById('fDetalle').value,
+      });
+    };
+  }
+
+  function renderTable(entries,opts){
+    opts=opts||{};
+    if(!entries||entries.length===0) return '<div class="empty">No hay registros todavía.</div>';
+    const tot={solicitado:0,pendiente:0,autorizado:0};
+    entries.forEach(e=>{if(tot[e.estado]!==undefined)tot[e.estado]++;});
+    const rows=entries.map(e=>`
+      <tr>
+        ${opts.showOwner?`<td>${escHtml(e._owner||'')}</td>`:''}
+        <td>${fmtDate(e.fecha)}</td>
+        <td>${escHtml(e.sitio)}</td>
+        <td>${escHtml(e.tecnico)}</td>
+        <td><span class="badge ${e.estado}">${e.estado.charAt(0).toUpperCase()+e.estado.slice(1)}</span></td>
+        <td>${escHtml(e.tarea)}</td>
+        <td>
+          ${opts.allowEdit?`<button class="edit-btn" data-edit-id="${e.id}" data-edit-user="${e._owner||opts.username||''}">Estado</button>`:''}
+          ${opts.allowDelete?(
+            state.confirmingDelete===e.id
+            ?`<button class="confirm-del-yes" data-id="${e.id}" data-user="${e._owner||opts.username||''}" style="color:var(--danger);font-weight:700;background:none;border:none;cursor:pointer;font-size:12px;text-decoration:underline;">Sí</button> <button class="confirm-del-no" style="background:none;border:none;color:var(--ink-soft);cursor:pointer;font-size:12px;text-decoration:underline;">No</button>`
+            :`<button class="del-btn" data-id="${e.id}" data-user="${e._owner||opts.username||''}">Borrar</button>`
+          ):''}
+        </td>
+      </tr>`).join('');
+    return `
+      <div class="stat-row">
+        <div class="stat"><div class="n" style="color:var(--amber)">${tot.solicitado}</div><div class="l">Solicitado</div></div>
+        <div class="stat"><div class="n" style="color:var(--violet)">${tot.pendiente}</div><div class="l">Pendiente</div></div>
+        <div class="stat"><div class="n" style="color:var(--green)">${tot.autorizado}</div><div class="l">Autorizado</div></div>
+      </div>
+      <table class="log">
+        <thead><tr>
+          ${opts.showOwner?'<th>Usuario</th>':''}
+          <th>Fecha</th><th>N° Sitio</th><th>Técnico</th><th>Estado</th><th>Tarea</th><th></th>
+        </tr></thead>
+        <tbody>${rows}</tbody>
+      </table>`;
+  }
+
+  function bindTable(){
+    root.querySelectorAll('.del-btn').forEach(btn=>{btn.onclick=()=>setState({confirmingDelete:btn.dataset.id});});
+    root.querySelectorAll('.confirm-del-yes').forEach(btn=>{btn.onclick=()=>handleDelete(btn.dataset.id,btn.dataset.user||undefined);});
+    root.querySelectorAll('.confirm-del-no').forEach(btn=>{btn.onclick=()=>setState({confirmingDelete:null});});
+    root.querySelectorAll('.edit-btn').forEach(btn=>{btn.onclick=()=>setState({editingEntry:{id:btn.dataset.editId,username:btn.dataset.editUser}});});
+  }
+
+  function renderModal(){
+    if(state.resettingPass){
+      const u=state.resettingPass;
+      return `
+        <div class="modal-overlay" id="modalOverlay">
+          <div class="modal">
+            <h3>Resetear contraseña</h3>
+            <p class="subtitle">Establecé una nueva contraseña para <strong>${escHtml(u)}</strong>.</p>
+            ${state.resetError?`<div class="error">${escHtml(state.resetError)}</div>`:''}
+            <div class="field"><label>Nueva contraseña</label><input type="password" id="newPassA" placeholder="mínimo 4 caracteres"></div>
+            <div class="field"><label>Repetir contraseña</label><input type="password" id="newPassB" placeholder="repetí la contraseña"></div>
+            <button class="primary" id="confirmResetBtn">Confirmar reset</button>
+            <button class="secondary" id="cancelResetBtn">Cancelar</button>
+          </div>
+        </div>`;
+    }
+    if(!state.editingEntry) return '';
+    const e=(allEntriesCache||[]).find(x=>x.id===state.editingEntry.id)||(state.entries||[]).find(x=>x.id===state.editingEntry.id);
+    const estadoActual=e?e.estado:'solicitado';
+    const selectedEstado=state._modalEstado||estadoActual;
+    const phone=e?getTecnicoPhone(e.tecnico):null;
+    const showWaPreview=selectedEstado==='autorizado';
+    return `
+      <div class="modal-overlay" id="modalOverlay">
+        <div class="modal">
+          <h3>Cambiar estado</h3>
+          <p class="subtitle">Sitio ${escHtml(e?e.sitio:'')} · ${escHtml(e?e.tecnico:'')}</p>
+          <div class="field">
+            <div class="estado-toggle">
+              <label class="opt solicitado ${selectedEstado==='solicitado'?'active':''}">
+                <input type="radio" name="modalEstado" value="solicitado" ${selectedEstado==='solicitado'?'checked':''}><span>Solicitado</span>
+              </label>
+              <label class="opt pendiente ${selectedEstado==='pendiente'?'active':''}">
+                <input type="radio" name="modalEstado" value="pendiente" ${selectedEstado==='pendiente'?'checked':''}><span>Pendiente</span>
+              </label>
+              <label class="opt autorizado ${selectedEstado==='autorizado'?'active':''}">
+                <input type="radio" name="modalEstado" value="autorizado" ${selectedEstado==='autorizado'?'checked':''}><span>Autorizado</span>
+              </label>
+            </div>
+          </div>
+          ${showWaPreview?`
+            <div style="background:#E8F5E9;border:1px solid #81C784;border-radius:8px;padding:12px 14px;margin-bottom:14px;font-size:13px;color:#1B5E20;">
+              <div style="font-weight:700;margin-bottom:8px;">✅ Se enviará email a ${escHtml(e?e.tecnico:'')}</div>
+              <div style="display:flex;align-items:center;gap:6px;">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="#2D3A8C"><path d="M20 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 4l-8 5-8-5V6l8 5 8-5v2z"/></svg>
+                ${(()=>{const em=e?getTecnicoEmail(e.tecnico):null; return em?`<span>${em}</span>`:`<span style="color:#B06A1A;">Email no registrado, no se enviará notificación.</span>`;})()}
+              </div>
+            </div>`:''}
+          <button class="primary" id="modalSave">${showWaPreview?'✅ Guardar y enviar email':'Guardar cambio'}</button>
+          <button class="secondary" id="modalCancel">Cancelar</button>
+        </div>
+      </div>`;
+  }
+
+  function bindModal(){
+    if(state.resettingPass){
+      document.getElementById('confirmResetBtn').onclick=()=>{
+        const a=document.getElementById('newPassA').value;
+        const b=document.getElementById('newPassB').value;
+        handleResetPassword(state.resettingPass, a, b);
+      };
+      document.getElementById('cancelResetBtn').onclick=()=>setState({resettingPass:null,resetError:''});
+      document.getElementById('modalOverlay').onclick=(e)=>{if(e.target.id==='modalOverlay')setState({resettingPass:null,resetError:''});};
+      return;
+    }
+    if(!state.editingEntry) return;
+    const e=(allEntriesCache||[]).find(x=>x.id===state.editingEntry.id)||(state.entries||[]).find(x=>x.id===state.editingEntry.id);
+    let selected=state._modalEstado||(e?e.estado:'solicitado');
+    root.querySelectorAll('input[name=modalEstado]').forEach(r=>{
+      r.addEventListener('change',()=>{
+        selected=r.value;
+        state._modalEstado=selected;
+        root.querySelectorAll('.modal .opt').forEach(l=>l.classList.remove('active'));
+        r.closest('label').classList.add('active');
+        // Re-render modal to show/hide WhatsApp preview
+        const modalSlot=document.getElementById('modalOverlay');
+        if(modalSlot) modalSlot.outerHTML=renderModal();
+        bindModal();
+      });
+    });
+    document.getElementById('modalSave').onclick=()=>{
+      state._modalEstado=null;
+      handleChangeEstado(state.editingEntry.id,state.editingEntry.username,selected);
+    };
+    document.getElementById('modalCancel').onclick=()=>{ state._modalEstado=null; setState({editingEntry:null}); };
+    document.getElementById('modalOverlay').onclick=(e)=>{ if(e.target.id==='modalOverlay'){ state._modalEstado=null; setState({editingEntry:null}); }};
+  }
+
+  function renderNotifBanner(){
+    const notifs=(state.notifs||[]).filter(n=>!n.leido);
+    const pending=state._whatsappPending;
+    let bannerExtra='';
+    if(pending){
+      bannerExtra=`
+        <div class="notif-banner" style="background:#FFF3E0;border-color:#FFB74D;margin-bottom:12px;">
+          <div class="notif-title" style="color:#E65100;">⚠️ Número no encontrado</div>
+          <div class="notif-item" style="border-color:#FFD180;">
+            <span>El técnico <strong>${escHtml(pending.tecnico)}</strong> no tiene número registrado. Avisale manualmente.</span>
+            <button class="notif-dismiss" style="color:#E65100;" id="dismissWaPending">OK</button>
+          </div>
+        </div>`;
+    }
+    if(!notifs.length) return bannerExtra;
+    return bannerExtra+`
+      <div class="notif-banner">
+        <div class="notif-title">✅ Ingresos autorizados</div>
+        ${notifs.map(n=>`
+          <div class="notif-item">
+            <span>Sitio <strong>${escHtml(n.sitio)}</strong> · ${escHtml(n.tarea)} · ${fmtDate(n.fecha)}</span>
+            <button class="notif-dismiss" data-notif-id="${n.id}">Marcar como leído</button>
+          </div>`).join('')}
+      </div>`;
+  }
+
+  async function handleDismissNotif(nid){
+    const notifs=(state.notifs||[]).map(n=>n.id===nid?Object.assign({},n,{leido:true}):n);
+    dbSet('gi_notifs:'+state.user.username,notifs);
+    setState({notifs});
+  }
+
+  function bindNotifBanner(){
+    root.querySelectorAll('.notif-dismiss').forEach(btn=>{
+      if(btn.id==='dismissWaPending'){
+        btn.onclick=()=>{ state._whatsappPending=null; render(); };
+      } else {
+        btn.onclick=()=>handleDismissNotif(btn.dataset.notifId);
+      }
+    });
+  }
+
+  function renderEmployee(){
+    root.innerHTML=`
+      <div class="wrap">
+        <header class="app">
+          <div class="brand"><span class="mark">GI</span><h1>Gestión de Ingresos</h1></div>
+          <div class="who">${escHtml(state.user.username)}<br><button id="logoutBtn">Cerrar sesión</button></div>
+        </header>
+        <p style="font-size:12px;color:var(--ink-soft);margin:-10px 0 16px;text-align:right;">Sistema desarrollado por <strong>Fernanda García</strong></p>
+        ${renderNotifBanner()}
+        ${renderForm()}
+        <div class="card">
+          <h2>Mis ingresos</h2>
+          <p class="subtitle">Historial de solicitudes que cargaste.</p>
+          ${renderTable(state.entries,{allowDelete:true,username:state.user.username})}
+        </div>
+        <footer class="note">Solo vos podés ver tus propios registros.<br>Sistema desarrollado por <strong>Fernanda García</strong></footer>
+        ${renderModal()}
+      </div>`;
+    document.getElementById('logoutBtn').onclick=handleLogout;
+    bindForm(); bindTable(); bindModal(); bindNotifBanner();
+  }
+
+  async function renderAdmin(){
+    if(!allEntriesCache){
+      root.innerHTML='<div class="wrap wide"><div class="loading">Cargando…</div></div>';
+      await loadAllEntries();
+    }
+    renderAdminView();
+  }
+
+  function renderAdminView(){
+    const section=state.adminSection||'inicio';
+    const viewing=state.adminViewing;
+    let visibleEntries=viewing?(allEntriesCache||[]).filter(e=>e._owner===viewing):(allEntriesCache||[]);
+
+    root.innerHTML=`
+      <div class="wrap wide">
+        <header class="app">
+          <div class="brand"><span class="mark">GI · Admin</span><h1>Gestión de Ingresos</h1></div>
+          <div class="who">${escHtml(state.user.username)} (admin)<br><button id="logoutBtn">Cerrar sesión</button></div>
+        </header>
+        <p style="font-size:12px;color:var(--ink-soft);margin:-10px 0 16px;text-align:right;">Sistema desarrollado por <strong>Fernanda García</strong></p>
+        <div class="admin-tabs">
+          <button class="admin-tab ${section==='inicio'?'active':''}" data-section="inicio">Cargar ingreso</button>
+          <button class="admin-tab ${section==='usuarios'?'active':''}" data-section="usuarios">Usuarios</button>
+          <button class="admin-tab ${section==='tecnicos'?'active':''}" data-section="tecnicos">Técnicos</button>
+          <button class="admin-tab ${section==='registros'?'active':''}" data-section="registros">Todos los ingresos</button>
+        </div>
+
+        ${section==='inicio'?`
+          ${renderForm()}
+          <div class="card">
+            <h2>Mis registros</h2>
+            ${renderTable(state.entries,{allowDelete:true,allowEdit:true,username:state.user.username})}
+          </div>
+        `:''}
+
+        ${section==='usuarios'?`
+          <div class="card">
+            <h2>Usuarios</h2>
+            <p class="subtitle">Agregá nuevos usuarios, reseteá contraseñas, o quitá a quienes ya no formen parte del equipo.</p>
+            ${state.empError?`<div class="error">${escHtml(state.empError)}</div>`:''}
+            ${state.empSuccess?`<div class="success">${escHtml(state.empSuccess)}</div>`:''}
+            ${state.resetSuccess?`<div class="success">${escHtml(state.resetSuccess)}</div>`:''}
+            <div class="field"><label>Nombre de usuario</label><input type="text" id="newEmpUser" placeholder="ej: jgomez"></div>
+            <div class="field"><label>Contraseña inicial</label><input type="password" id="newEmpPass" placeholder="mínimo 4 caracteres"></div>
+            <button class="primary" id="addEmpBtn">Agregar usuario</button>
+            ${allUsersCache.length>0?`
+              <div style="margin-top:22px;">
+                <label style="margin-bottom:10px;">Usuarios actuales</label>
+                ${allUsersCache.map(u=>`
+                  <div class="user-row">
+                    <span style="font-size:14px;">${escHtml(u)}</span>
+                    <div class="user-row-actions">
+                      ${state.confirmingRemove===u
+                        ?`<span>
+                            <span style="font-size:12px;color:var(--danger);margin-right:6px;">¿Seguro?</span>
+                            <button class="remove-emp-btn" data-remove-user="${escHtml(u)}" style="color:var(--danger);font-weight:700;background:none;border:none;cursor:pointer;font-size:12px;text-decoration:underline;">Sí, quitar</button>
+                            <button class="cancel-remove-btn" style="margin-left:6px;background:none;border:none;color:var(--ink-soft);text-decoration:underline;cursor:pointer;font-size:12px;">Cancelar</button>
+                          </span>`
+                        :`<span>
+                            <button class="reset-pass-btn" data-reset-user="${escHtml(u)}">Resetear contraseña</button>
+                            <button class="remove-emp-btn" data-remove-user="${escHtml(u)}" style="background:none;border:none;color:var(--ink-soft);cursor:pointer;font-size:12px;text-decoration:underline;">Quitar usuario</button>
+                          </span>`}
+                    </div>
+                  </div>`).join('')}
+              </div>`:''}
+          </div>
+        `:''}
+
+        ${section==='tecnicos'?`
+          <div class="card">
+            <h2>Técnicos y notificaciones</h2>
+            <p class="subtitle">Agregá o quitá técnicos. Cuando un ingreso se autoriza, el email se envía automáticamente.</p>
+            ${state.tecnicoError?`<div class="error">${escHtml(state.tecnicoError)}</div>`:''}
+            ${state.tecnicoSuccess?`<div class="success">${escHtml(state.tecnicoSuccess)}</div>`:''}
+            <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:8px;">
+              <div class="field" style="flex:1;min-width:160px;margin:0;"><label>Nombre completo</label><input type="text" id="newTecNombre" placeholder="ej: Juan Pérez"></div>
+              <div class="field" style="flex:2;min-width:200px;margin:0;"><label>Email</label><input type="email" id="newTecEmail" placeholder="ej: juan@empresa.com"></div>
+            </div>
+            <button class="primary" id="addTecBtn" style="margin-bottom:20px;">Agregar técnico</button>
+            <div style="margin-top:4px;">
+              ${(tecnicosCache||[]).map((t,i)=>`
+                <div class="user-row" style="align-items:center;">
+                  <div style="flex:1;">
+                    <div style="font-size:14px;font-weight:600;">${escHtml(t.nombre)}</div>
+                    <div style="font-size:12px;color:var(--ink-soft);">📧 ${escHtml(t.email)}</div>
+                  </div>
+                  <div class="user-row-actions">
+                    ${state.confirmingRemoveTec===i
+                      ?`<span style="font-size:12px;color:var(--danger);margin-right:6px;">¿Seguro?</span>
+                         <button class="remove-tec-btn" data-tec-idx="${i}" style="color:var(--danger);font-weight:700;background:none;border:none;cursor:pointer;font-size:12px;text-decoration:underline;">Sí, quitar</button>
+                         <button class="cancel-tec-btn" style="margin-left:6px;background:none;border:none;color:var(--ink-soft);text-decoration:underline;cursor:pointer;font-size:12px;">Cancelar</button>`
+                      :`<button class="remove-tec-btn" data-tec-idx="${i}" style="background:none;border:none;color:var(--ink-soft);cursor:pointer;font-size:12px;text-decoration:underline;">Quitar</button>`}
+                  </div>
+                </div>`).join('')}
+            </div>
+          </div>
+        `:''}
+
+        ${section==='registros'?`
+          <div class="card">
+            <h2>Todos los ingresos del equipo</h2>
+            <p class="subtitle">Ves en un solo lugar todo lo cargado. Filtrá por usuario o exportá a Excel.</p>
+            <div class="admin-select">
+              <select id="userSelect">
+                <option value="">— Todos los usuarios —</option>
+                <option value="${escHtml(state.user.username)}" ${viewing===state.user.username?'selected':''}>${escHtml(state.user.username)} (yo)</option>
+                ${allUsersCache.map(u=>`<option value="${escHtml(u)}" ${viewing===u?'selected':''}>${escHtml(u)}</option>`).join('')}
+              </select>
+            </div>
+            <button class="secondary" id="exportBtn" ${state.exporting?'disabled':''}>${state.exporting?'Generando…':'Exportar a Excel'}</button>
+            <div style="margin-top:18px;">
+              ${renderTable(visibleEntries,{allowDelete:true,allowEdit:true,showOwner:!viewing})}
+            </div>
+          </div>
+        `:''}
+
+        ${renderModal()}
+      </div>`;
+
+    document.getElementById('logoutBtn').onclick=handleLogout;
+    root.querySelectorAll('.admin-tab').forEach(btn=>{
+      btn.onclick=()=>{ state.adminSection=btn.dataset.section; state.confirmingRemove=null; state.confirmingDelete=null; state.resetSuccess=''; renderAdminView(); };
+    });
+
+    if(section==='inicio'){ bindForm(); bindTable(); }
+
+    if(section==='usuarios'){
+      document.getElementById('addEmpBtn').onclick=()=>handleAddEmp(document.getElementById('newEmpUser').value,document.getElementById('newEmpPass').value);
+      root.querySelectorAll('.reset-pass-btn').forEach(btn=>{
+        btn.onclick=()=>setState({resettingPass:btn.dataset.resetUser, resetError:''});
+      });
+      root.querySelectorAll('.remove-emp-btn').forEach(btn=>{
+        btn.onclick=()=>{ const u=btn.dataset.removeUser; if(state.confirmingRemove===u) handleRemoveEmp(u); else setState({confirmingRemove:u}); };
+      });
+      root.querySelectorAll('.cancel-remove-btn').forEach(btn=>{ btn.onclick=()=>setState({confirmingRemove:null}); });
+    }
+
+    if(section==='tecnicos'){
+      document.getElementById('addTecBtn').onclick=async()=>{
+        const nombre=document.getElementById('newTecNombre').value.trim();
+        const email=document.getElementById('newTecEmail').value.trim();
+        if(!nombre||!email){setState({tecnicoError:'Completá nombre y email.',tecnicoSuccess:''});renderAdminView();return;}
+        if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)){setState({tecnicoError:'El email no es válido.',tecnicoSuccess:''});renderAdminView();return;}
+        const lista=[...(tecnicosCache||[]),{nombre,email}];
+        await saveTecnicos(lista);
+        setState({tecnicoError:'',tecnicoSuccess:`"${nombre}" agregado correctamente.`,confirmingRemoveTec:null});
+        renderAdminView();
+        setTimeout(()=>{setState({tecnicoSuccess:''});renderAdminView();},3000);
+      };
+      root.querySelectorAll('.remove-tec-btn').forEach(btn=>{
+        btn.onclick=async()=>{
+          const idx=parseInt(btn.dataset.tecIdx);
+          if(state.confirmingRemoveTec===idx){
+            const lista=(tecnicosCache||[]).filter((_,i)=>i!==idx);
+            await saveTecnicos(lista);
+            setState({tecnicoError:'',tecnicoSuccess:'Técnico quitado.',confirmingRemoveTec:null});
+            renderAdminView();
+            setTimeout(()=>{setState({tecnicoSuccess:''});renderAdminView();},3000);
+          } else {
+            setState({confirmingRemoveTec:idx});
+            renderAdminView();
+          }
+        };
+      });
+      root.querySelectorAll('.cancel-tec-btn').forEach(btn=>{
+        btn.onclick=()=>{setState({confirmingRemoveTec:null});renderAdminView();};
+      });
+    }
+
+    if(section==='registros'){
+      document.getElementById('exportBtn').onclick=handleExport;
+      document.getElementById('userSelect').onchange=(e)=>{ state.adminViewing=e.target.value||null; renderAdminView(); };
+      bindTable();
+    }
+
+    bindModal();
+  }
+
+  init();
+})();
+</script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+</body>
+</html>
