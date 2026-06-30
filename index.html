@@ -5,6 +5,26 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Gestión de Ingresos con Notificación · Fernanda García</title>
 <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+  import { getFirestore, collection, doc, getDoc, getDocs, setDoc, deleteDoc, query, where }
+    from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+  const firebaseConfig = {
+    apiKey: "AIzaSyCACGGWUxrlxZtBjzzzOinyz5t9tIR5vDE",
+    authDomain: "gestion-ingresos-4a6d0.firebaseapp.com",
+    projectId: "gestion-ingresos-4a6d0",
+    storageBucket: "gestion-ingresos-4a6d0.firebasestorage.app",
+    messagingSenderId: "609140418602",
+    appId: "1:609140418602:web:5bff1f2c8ecf2bb195fb53",
+  };
+  const fbApp = initializeApp(firebaseConfig);
+  const fbDb  = getFirestore(fbApp);
+
+  // Exponer en window para que el script principal (no-módulo) lo use
+  window.__firebase = { fbDb, collection, doc, getDoc, getDocs, setDoc, deleteDoc, query, where };
+  window.dispatchEvent(new Event('firebase-ready'));
+</script>
 <style>
   :root{
     --bg: #ECEEF4;
@@ -134,23 +154,46 @@
 <script>
 (function(){
 
-  // ── Storage: localStorage (funciona offline en el navegador) ──
-  function dbGet(key){
-    try{ const v=localStorage.getItem(key); return v?JSON.parse(v):null; }catch(e){return null;}
+  // ── Storage: Firebase Firestore (compartido entre todos los dispositivos) ──
+  // Usamos una sola colección "gi_kv" con un documento por "key" (mismo modelo que antes con localStorage)
+  function waitFirebase(){
+    return new Promise(resolve=>{
+      if(window.__firebase) return resolve();
+      window.addEventListener('firebase-ready', ()=>resolve(), {once:true});
+    });
   }
-  function dbSet(key,value){
-    try{ localStorage.setItem(key,JSON.stringify(value)); return true; }catch(e){return false;}
+
+  async function dbGet(key){
+    await waitFirebase();
+    const {fbDb,doc,getDoc} = window.__firebase;
+    try{
+      const snap = await getDoc(doc(fbDb,'gi_kv',key));
+      if(!snap.exists()) return null;
+      const d = snap.data();
+      return d && 'v' in d ? JSON.parse(d.v) : null;
+    }catch(e){ console.error('dbGet error',key,e); return null; }
   }
-  function dbDelete(key){
-    try{ localStorage.removeItem(key); return true; }catch(e){return false;}
+  async function dbSet(key,value){
+    await waitFirebase();
+    const {fbDb,doc,setDoc} = window.__firebase;
+    try{ await setDoc(doc(fbDb,'gi_kv',key),{v:JSON.stringify(value)}); return true; }
+    catch(e){ console.error('dbSet error',key,e); return false; }
   }
-  function dbListUsers(){
-    const keys=[];
-    for(let i=0;i<localStorage.length;i++){
-      const k=localStorage.key(i);
-      if(k&&k.startsWith('gi_user:')) keys.push(k.replace('gi_user:',''));
-    }
-    return keys;
+  async function dbDelete(key){
+    await waitFirebase();
+    const {fbDb,doc,deleteDoc} = window.__firebase;
+    try{ await deleteDoc(doc(fbDb,'gi_kv',key)); return true; }
+    catch(e){ console.error('dbDelete error',key,e); return false; }
+  }
+  async function dbListUsers(){
+    await waitFirebase();
+    const {fbDb,collection,getDocs} = window.__firebase;
+    try{
+      const snap = await getDocs(collection(fbDb,'gi_kv'));
+      const out=[];
+      snap.forEach(d=>{ if(d.id.startsWith('gi_user:')) out.push(d.id.replace('gi_user:','')); });
+      return out;
+    }catch(e){ console.error('dbListUsers error',e); return []; }
   }
   const sleep=ms=>new Promise(r=>setTimeout(r,ms));
 
@@ -175,14 +218,14 @@
   let tecnicosCache = null;
 
   async function loadTecnicos(){
-    const r = dbGet('gi_tecnicos');
+    const r = await dbGet('gi_tecnicos');
     tecnicosCache = r || TECNICOS_DEFAULT;
     return tecnicosCache;
   }
 
   async function saveTecnicos(list){
     tecnicosCache = list;
-    dbSet('gi_tecnicos', list);
+    await dbSet('gi_tecnicos', list);
   }
 
   function getTecnicoEmail(nombre){
@@ -277,25 +320,25 @@
   async function init(){
     await loadTecnicos();
     if(memSession){
-      const rec=dbGet('gi_user:'+memSession);
-      if(rec){ state.user={username:memSession,isAdmin:!!rec.isAdmin}; await loadMyEntries(); state.notifs=dbGet('gi_notifs:'+memSession)||[]; }
+      const rec=await dbGet('gi_user:'+memSession);
+      if(rec){ state.user={username:memSession,isAdmin:!!rec.isAdmin}; await loadMyEntries(); state.notifs=await dbGet('gi_notifs:'+memSession)||[]; }
     }
     state.loading=false; render();
   }
 
   async function loadMyEntries(){
-    const r=dbGet('gi_entries:'+state.user.username);
+    const r=await dbGet('gi_entries:'+state.user.username);
     state.entries=r||[];
   }
 
   async function handleLogin(u,p){
     u=u.trim();
     if(!u||!p){setState({authError:'Completá usuario y contraseña.'});return;}
-    const rec=dbGet('gi_user:'+u);
+    const rec=await dbGet('gi_user:'+u);
     if(!rec){setState({authError:'No existe ese usuario. Registrate primero.'});return;}
     if(await hashPass(p)!==rec.passHash){setState({authError:'Contraseña incorrecta.'});return;}
     memSession=u; localStorage.setItem('gi_session',u); state.user={username:u,isAdmin:!!rec.isAdmin}; state.authError='';
-    await loadMyEntries(); state.notifs=dbGet('gi_notifs:'+u)||[]; render();
+    await loadMyEntries(); state.notifs=await dbGet('gi_notifs:'+u)||[]; render();
   }
 
   async function handleRegister(u,p,p2){
@@ -303,9 +346,9 @@
     if(!u||!p){setState({authError:'Completá nombre de usuario y contraseña.'});return;}
     if(p.length<4){setState({authError:'La contraseña debe tener al menos 4 caracteres.'});return;}
     if(p!==p2){setState({authError:'Las contraseñas no coinciden.'});return;}
-    if(dbGet('gi_user:'+u)){setState({authError:'Ese nombre de usuario ya existe.'});return;}
+    if(await dbGet('gi_user:'+u)){setState({authError:'Ese nombre de usuario ya existe.'});return;}
     const isAdmin=u.toLowerCase()==='admin';
-    dbSet('gi_user:'+u,{username:u,passHash:await hashPass(p),isAdmin});
+    await dbSet('gi_user:'+u,{username:u,passHash:await hashPass(p),isAdmin});
     memSession=u; localStorage.setItem('gi_session',u); state.user={username:u,isAdmin}; state.authError=''; state.entries=[]; render();
   }
 
@@ -326,7 +369,7 @@
       cargadoPor:state.user.username, registradoEl:new Date().toISOString(),
     };
     const newEntries=[entry,...state.entries];
-    const ok=dbSet('gi_entries:'+state.user.username,newEntries);
+    const ok=await dbSet('gi_entries:'+state.user.username,newEntries);
     if(!ok){setState({saving:false,formError:'No se pudo guardar.'});return;}
     state.entries=newEntries;
     if(state.user.isAdmin&&allEntriesCache) allEntriesCache=[Object.assign({},entry,{_owner:state.user.username}),...allEntriesCache];
@@ -336,25 +379,25 @@
 
   async function handleDelete(id,username){
     const target=username||state.user.username;
-    const rec=dbGet('gi_entries:'+target);
+    const rec=await dbGet('gi_entries:'+target);
     const filtered=(rec||[]).filter(e=>e.id!==id);
-    dbSet('gi_entries:'+target,filtered);
+    await dbSet('gi_entries:'+target,filtered);
     if(target===state.user.username) state.entries=filtered;
     if(allEntriesCache) allEntriesCache=allEntriesCache.filter(e=>e.id!==id);
     setState({confirmingDelete:null});
   }
 
   async function handleChangeEstado(id,username,nuevoEstado){
-    const rec=dbGet('gi_entries:'+username);
+    const rec=await dbGet('gi_entries:'+username);
     const updated=(rec||[]).map(e=>e.id===id?Object.assign({},e,{estado:nuevoEstado}):e);
-    dbSet('gi_entries:'+username,updated);
+    await dbSet('gi_entries:'+username,updated);
     if(username===state.user.username) state.entries=updated;
     if(allEntriesCache) allEntriesCache=allEntriesCache.map(e=>e.id===id?Object.assign({},e,{estado:nuevoEstado}):e);
     if(nuevoEstado==='autorizado'){
       const entry=updated.find(e=>e.id===id);
-      const notifs=dbGet('gi_notifs:'+username)||[];
+      const notifs=await dbGet('gi_notifs:'+username)||[];
       notifs.push({id:'n_'+Date.now(),entryId:id,sitio:entry?entry.sitio:'',tarea:entry?entry.tarea:'',fecha:entry?entry.fecha:'',leido:false,creadoEl:new Date().toISOString()});
-      dbSet('gi_notifs:'+username,notifs);
+      await dbSet('gi_notifs:'+username,notifs);
       // Enviar email de notificación
       if(entry){
         sendEmailNotif(entry).then(ok=>{
@@ -366,12 +409,12 @@
   }
 
   async function loadAllEntries(){
-    const usernames=dbListUsers();
+    const usernames=await dbListUsers();
     allUsersCache=usernames.filter(u=>u!==state.user.username);
     const allUsernames=[state.user.username,...allUsersCache];
     const merged=[];
     for(const u of allUsernames){
-      const rec=dbGet('gi_entries:'+u)||[];
+      const rec=await dbGet('gi_entries:'+u)||[];
       adminEntriesCache[u]=rec;
       rec.forEach(e=>merged.push(Object.assign({},e,{_owner:u})));
     }
@@ -384,16 +427,16 @@
     if(!u||!p){setState({empError:'Completá nombre y contraseña.'});return;}
     if(p.length<4){setState({empError:'La contraseña debe tener al menos 4 caracteres.'});return;}
     if(u.toLowerCase()==='admin'){setState({empError:'Ese nombre está reservado.'});return;}
-    if(dbGet('gi_user:'+u)){setState({empError:'Ya existe un usuario con ese nombre.'});return;}
-    dbSet('gi_user:'+u,{username:u,passHash:await hashPass(p),isAdmin:false});
-    dbSet('gi_entries:'+u,[]);
+    if(await dbGet('gi_user:'+u)){setState({empError:'Ya existe un usuario con ese nombre.'});return;}
+    await dbSet('gi_user:'+u,{username:u,passHash:await hashPass(p),isAdmin:false});
+    await dbSet('gi_entries:'+u,[]);
     setState({empError:'',empSuccess:'Usuario "'+u+'" creado correctamente.'});
     await renderAdmin();
   }
 
   async function handleRemoveEmp(u){
-    try{dbDelete('gi_user:'+u);}catch(e){}
-    try{dbDelete('gi_entries:'+u);}catch(e){}
+    try{await dbDelete('gi_user:'+u);}catch(e){}
+    try{await dbDelete('gi_entries:'+u);}catch(e){}
     delete adminEntriesCache[u];
     if(state.adminViewing===u) state.adminViewing=null;
     if(allEntriesCache) allEntriesCache=allEntriesCache.filter(e=>e._owner!==u);
@@ -409,7 +452,7 @@
     if(newPass !== newPass2){
       setState({resetError:'Las contraseñas no coinciden.'});return;
     }
-    const rec = dbGet('gi_user:'+username);
+    const rec = await dbGet('gi_user:'+username);
     if(!rec){setState({resetError:'No se encontró el usuario.'});return;}
     rec.passHash = await hashPass(newPass);
     await dbSet('gi_user:'+username, rec, true);
@@ -693,7 +736,7 @@
 
   async function handleDismissNotif(nid){
     const notifs=(state.notifs||[]).map(n=>n.id===nid?Object.assign({},n,{leido:true}):n);
-    dbSet('gi_notifs:'+state.user.username,notifs);
+    await dbSet('gi_notifs:'+state.user.username,notifs);
     setState({notifs});
   }
 
