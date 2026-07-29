@@ -387,12 +387,12 @@
     setState({confirmingDelete:null});
   }
 
-  async function handleChangeEstado(id,username,nuevoEstado){
+  async function handleChangeEstado(id,username,nuevoEstado,comentario){
     const rec=await dbGet('gi_entries:'+username);
-    const updated=(rec||[]).map(e=>e.id===id?Object.assign({},e,{estado:nuevoEstado}):e);
+    const updated=(rec||[]).map(e=>e.id===id?Object.assign({},e,{estado:nuevoEstado, comentarioAdmin: comentario!==undefined ? comentario : (e.comentarioAdmin||'')}):e);
     await dbSet('gi_entries:'+username,updated);
     if(username===state.user.username) state.entries=updated;
-    if(allEntriesCache) allEntriesCache=allEntriesCache.map(e=>e.id===id?Object.assign({},e,{estado:nuevoEstado}):e);
+    if(allEntriesCache) allEntriesCache=allEntriesCache.map(e=>e.id===id?Object.assign({},e,{estado:nuevoEstado, comentarioAdmin: comentario!==undefined ? comentario : (e.comentarioAdmin||'')}):e);
     if(nuevoEstado==='autorizado'){
       const entry=updated.find(e=>e.id===id);
       const notifs=await dbGet('gi_notifs:'+username)||[];
@@ -471,6 +471,7 @@
       'Estado':e.estado,
       'Tarea a realizar':e.tarea,
       'Detalle':e.detalle,
+      'Comentario admin':e.comentarioAdmin||'',
       'Registrado el':new Date(e.registradoEl).toLocaleString('es-AR'),
     }));
     const ws=XLSX.utils.json_to_sheet(rows);
@@ -589,6 +590,7 @@
         <td>${escHtml(e.tecnico)}</td>
         <td><span class="badge ${e.estado}">${e.estado.charAt(0).toUpperCase()+e.estado.slice(1)}</span></td>
         <td>${escHtml(e.tarea)}</td>
+        <td>${e.comentarioAdmin?`<span style="font-size:12px;color:var(--blue-dark);background:var(--blue-light);padding:3px 8px;border-radius:6px;display:inline-block;">${escHtml(e.comentarioAdmin)}</span>`:''}</td>
         <td>
           ${opts.allowEdit?`<button class="edit-btn" data-edit-id="${e.id}" data-edit-user="${e._owner||opts.username||''}">Estado</button>`:''}
           ${opts.allowDelete?(
@@ -607,7 +609,7 @@
       <table class="log">
         <thead><tr>
           ${opts.showOwner?'<th>Usuario</th>':''}
-          <th>Fecha</th><th>N° Sitio</th><th>Técnico</th><th>Estado</th><th>Tarea</th><th></th>
+          <th>Fecha</th><th>N° Sitio</th><th>Técnico</th><th>Estado</th><th>Tarea</th><th>Comentario</th><th></th>
         </tr></thead>
         <tbody>${rows}</tbody>
       </table>`;
@@ -668,6 +670,10 @@
                 ${(()=>{const em=e?getTecnicoEmail(e.tecnico):null; return em?`<span>${em}</span>`:`<span style="color:#B06A1A;">Email no registrado, no se enviará notificación.</span>`;})()}
               </div>
             </div>`:''}
+          <div class="field">
+            <label>Comentario para el técnico (opcional)</label>
+            <textarea id="modalComentario" placeholder="Ej: Coordinar acceso con el encargado del sitio…" style="min-height:70px;">${escHtml(e&&e.comentarioAdmin?e.comentarioAdmin:'')}</textarea>
+          </div>
           <button class="primary" id="modalSave">${showWaPreview?'✅ Guardar y enviar email':'Guardar cambio'}</button>
           <button class="secondary" id="modalCancel">Cancelar</button>
         </div>
@@ -701,8 +707,9 @@
       });
     });
     document.getElementById('modalSave').onclick=()=>{
+      const comentario=document.getElementById('modalComentario')?document.getElementById('modalComentario').value.trim():'';
       state._modalEstado=null;
-      handleChangeEstado(state.editingEntry.id,state.editingEntry.username,selected);
+      handleChangeEstado(state.editingEntry.id,state.editingEntry.username,selected,comentario);
     };
     document.getElementById('modalCancel').onclick=()=>{ state._modalEstado=null; setState({editingEntry:null}); };
     document.getElementById('modalOverlay').onclick=(e)=>{ if(e.target.id==='modalOverlay'){ state._modalEstado=null; setState({editingEntry:null}); }};
