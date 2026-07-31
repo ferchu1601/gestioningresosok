@@ -307,6 +307,7 @@
     empError:'', empSuccess:'', adminSection:'inicio',
     adminViewing:null, exporting:false, editingEntry:null,
     notifs:[], resettingPass:null, resetError:'', resetSuccess:'',
+    filtroEstado:'todos',
   };
   let allEntriesCache=null;
   let allUsersCache=[];
@@ -770,13 +771,22 @@
         <div class="card">
           <h2>Mis ingresos</h2>
           <p class="subtitle">Historial de solicitudes que cargaste.</p>
-          ${renderTable(state.entries,{allowDelete:true,username:state.user.username})}
+          <div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;">
+            ${['todos','solicitado','pendiente','autorizado'].map(op=>`
+              <button class="filtro-estado-btn ${state.filtroEstado===op?'active':''}" data-estado="${op}" style="padding:6px 16px;border-radius:20px;border:1.5px solid ${state.filtroEstado===op?'var(--blue)':'var(--line)'};background:${state.filtroEstado===op?'var(--blue)':'var(--panel)'};color:${state.filtroEstado===op?'#fff':'var(--ink)'};cursor:pointer;font-size:13px;font-weight:600;">
+                ${op.charAt(0).toUpperCase()+op.slice(1)}
+              </button>`).join('')}
+          </div>
+          ${renderTable((state.filtroEstado==='todos'?state.entries:state.entries.filter(e=>e.estado===state.filtroEstado)),{allowDelete:true,username:state.user.username})}
         </div>
         <footer class="note">Solo vos podés ver tus propios registros.<br>Sistema desarrollado por <strong>Fernanda García</strong></footer>
         ${renderModal()}
       </div>`;
     document.getElementById('logoutBtn').onclick=handleLogout;
     bindForm(); bindTable(); bindModal(); bindNotifBanner();
+    root.querySelectorAll('.filtro-estado-btn').forEach(btn=>{
+      btn.onclick=()=>{ state.filtroEstado=btn.dataset.estado; renderEmployee(); };
+    });
   }
 
   async function renderAdmin(){
@@ -888,9 +898,15 @@
                 ${allUsersCache.map(u=>`<option value="${escHtml(u)}" ${viewing===u?'selected':''}>${escHtml(u)}</option>`).join('')}
               </select>
             </div>
+            <div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;">
+              ${['todos','solicitado','pendiente','autorizado'].map(op=>`
+                <button class="filtro-estado-btn ${state.filtroEstado===op?'active':''}" data-estado="${op}" style="padding:6px 16px;border-radius:20px;border:1.5px solid ${state.filtroEstado===op?'var(--blue)':'var(--line)'};background:${state.filtroEstado===op?'var(--blue)':'var(--panel)'};color:${state.filtroEstado===op?'#fff':'var(--ink)'};cursor:pointer;font-size:13px;font-weight:600;">
+                  ${op.charAt(0).toUpperCase()+op.slice(1)}
+                </button>`).join('')}
+            </div>
             <button class="secondary" id="exportBtn" ${state.exporting?'disabled':''}>${state.exporting?'Generando…':'Exportar a Excel'}</button>
             <div style="margin-top:18px;">
-              ${renderTable(visibleEntries,{allowDelete:true,allowEdit:true,showOwner:!viewing})}
+              ${renderTable((state.filtroEstado==='todos'?visibleEntries:visibleEntries.filter(e=>e.estado===state.filtroEstado)),{allowDelete:true,allowEdit:true,showOwner:!viewing})}
             </div>
           </div>
         `:''}
@@ -950,7 +966,10 @@
 
     if(section==='registros'){
       document.getElementById('exportBtn').onclick=handleExport;
-      document.getElementById('userSelect').onchange=(e)=>{ state.adminViewing=e.target.value||null; renderAdminView(); };
+      document.getElementById('userSelect').onchange=(e)=>{ state.adminViewing=e.target.value||null; state.filtroEstado='todos'; renderAdminView(); };
+      root.querySelectorAll('.filtro-estado-btn').forEach(btn=>{
+        btn.onclick=()=>{ state.filtroEstado=btn.dataset.estado; renderAdminView(); };
+      });
       bindTable();
     }
 
